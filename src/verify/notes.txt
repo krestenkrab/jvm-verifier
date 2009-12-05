@@ -1,0 +1,135 @@
+
+
+
+
+
+These are some notes that I intend to send to the authors of the Java
+Virtual Machine Specification.  
+
+
+The "any" Exception
+
+The "Exceptions" attribute sometimes (often?) contain a zero in the
+place of the catch_type.  This is not documentet in the Virtual
+Machine Specification, but seems to be something that most compilers
+emit.  It seems to mean that "any" exception is covered by this
+handler, and that it is used for compiling monitor_exit operations.
+There is even an example, in section 7.14, on how to compile
+synchronized blocks, giving an example with "any", but I can't find a
+description of what "any" is.
+
+I've been working on a verifier, and the question is, what kind of
+type to push on the stack when verifying the "any" exceptions clause.
+Should it be java.lang.Throwable, or maybe even java.lang.Object?
+Since the runtime does not enforce that the throws instruction is
+applied only to Throwable's, maybe Object would be more appropriate?
+
+
+ConstantValue for Non-Static Fields?
+
+For ConstantValue attributes, The Specification seems to contradict
+itself.  In the first paragraph, it says that if a field has a
+constant value attribute, then the field must have the ACC_STATIC bit
+set.  In the following paragraph, it says that if a constant value is
+provided for a non-static field, then the constant value attribute
+should be ignored.  Which is more correct?  
+
+
+Padding Bytes
+
+Also, some opcodes (invokeinterface, tableswitch, lookupswitch)
+specify padding bytes to be inserted.  The Specification says that
+these bytes must contain zero values, but it appears that even Sun's
+Java Compiler (javac), as well as the newer one (Martin Odersky's
+gjc), do not follow the specification.  This seems to be ignored by
+the bytecode verifier.
+
+Now, this would not be so strange, since the values do not serve any
+purpose, if it wasn't because they insert only values 0x00--0x07.
+Now, Why?  Is there some hidden information in those bit patterns?  
+
+
+Unreachable Code
+
+Some compilers may emit unreachable code, or even just garbage in the
+middle of the byte code sequence.  My verifier has the "problem", that
+it detects such unreachable passages of the byte code, but doesn't
+know what to do with it.  Is it a requirement for "conformant code" to
+contain "regular instruction sequences", i.e., that an entire method
+can be "parsed" by looking at one instruction at a time, going from
+the first to the last instruction.  This is not totally clear from The
+Specification. 
+
+Consider the following Java method:
+
+  int foo () {
+    try {
+      return 1;
+    } finally {
+      return 2;
+    }
+  }
+
+Looking at the resulting instruction sequence when compiled with IBM's
+Jikes, my verifier detects [5..10], [15..16] and [20..21] as
+ureachable.  (X's mark dead code detected.)
+
+   0 iconst_1
+   1 istore_3
+   2 jsr 17     
+   5 iload_3    X
+   6 ireturn    X
+   7 jsr 17     X
+  10 nop        X
+  11 astore_1    
+  12 jsr 17      
+  15 aload_1    X
+  16 athrow     X
+  17 astore_2
+  18 iconst_2
+  19 ireturn
+  20 ret 2      X
+Exception table:
+   from   to  target type
+     0    11    11   any
+
+For the same Java code, GJC generates the following, which also has
+dead code in it.
+
+   0 iconst_1
+   1 istore_1
+   2 jsr 13
+   5 iload_1    X
+   6 ireturn    X
+   7 astore_2
+   8 jsr 13
+  11 aload_2    X
+  12 athrow     X
+  13 astore_3
+  14 iconst_2
+  15 ireturn
+  16 iconst_0   X
+Exception table:
+   from   to  target type
+     0     7     7   any
+
+Interestingly enough, javac does not produce dead code in this case.
+However, it doesn't discover that the function always returns two, and
+installs an exception handler, "just in case"...
+
+   0 iconst_1
+   1 pop
+   2 goto 6
+   5 pop
+   6 iconst_2
+   7 ireturn
+Exception table:
+   from   to  target type
+     0     5     5   any
+
+
+
+
+
+
+

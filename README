@@ -1,0 +1,100 @@
+
+
+   Kresten's Verifier for Java Byte Codes
+   ======================================
+
+
+   The interface to the verifier is currently very crude.  
+   To run it, type
+
+     prompt>  java verify.Tool  class-or-file-name ...
+
+   If you give it a name of a class file, it will try to figure out
+   the corresponding class name, (removing leading "./", and
+   terminating ".class", and replace '.' with the path seperator).
+
+   To start off, you may want to verify the verifier. On unix, you can
+   write something like this,
+
+     prompt>  java verify.Tool `find verify/ -name '*.class'`
+
+
+   As it runs, it will print a '.' for each method checked, and a '#'
+   whenever it loads extra auxillary classes needed.
+
+
+   It has two interesting options.
+
+     --classpath=PATH
+
+   Where path is a : or ; separated path (according to the java
+   property "path.separator").  This specifies the "class path" from
+   which to load classes.  The classpath defaults to whatever the Java
+   Runtime decides to make available in the java.class.path property.
+
+   The verifier does not use the Java system's class loader.  Rather,
+   it incorporates it's own loading mechanism which is more
+   ligh-weight.  Also you don't really need to "load" classes in order
+   to verify them.
+
+
+   The second interesting option is 
+   
+     --verbose=true
+
+   which will make the verifier print a line of information for each
+   instruction checked.  (or perhaps this is just to be considered my
+   debugging output...)  It might look like this:
+
+     --[151]----------
+     (##)     <[#JXJX#I#I????????> pc=151 new
+     (##@)    <[#JXJX#I#I????????> pc=154 dup
+     (##@@)   <[#JXJX#I#I????????> pc=155 iconst_1
+     (##@@I)  <[#JXJX#I#I????????> pc=156 invokespecial
+     calling java/lang/Boolean.<init> (boolean) void
+
+   For a given sequence of four instructions.  The --[151]---- marks
+   an entrypoint for a basic block.  The part on the left, in
+   parentheses describes the state of the stack at this particular
+   instruction.  Each character represents one "stack item".  The
+   right-most element is the top of the stack.  Generally, these are
+   the same as the characters encoding types in a field descriptor,
+   "I" is integer, "J" is long, "D" is double and so on.  Special are
+   however "X", representing the second half of a long, and "Q", the
+   same thing for doubles.  "#" is a normal object, "@" is an
+   uninitialized object (one for which a constructor has not yet been
+   called) and "[" is an array.  (See types/TypeTags.java for the full
+   list)
+ 
+   On the right, in angle brackets, is the "state" of the local
+   variables.  These are represented using the same characters as
+   before.   Location, which have yet to be assigned a value, are
+   marked with "?".  One of the jobs of the verifier is to make sure
+   that such a location is never being read.
+
+   Finally, on the right, you see the current pc (program counter) and
+   the symbolic name of the opcode being checked.
+
+   When the bytecode verifier detects an error, and you did not choose
+   the --verbose=true option already, it will turn it on for you, and
+   re-check the very same method.
+   
+   Right now, the interface is rather crude.  If you get no specific
+   messages, that means that your code did verify.
+
+
+   
+   As a consequence of the way it works, it may discover unreachable
+   code in the instruction sequence.  I have not seen javac-generated
+   code with unreachable instructions, but several other compilers
+   produce them all over.  In specific, IBM's Jikes compiler does.  
+   When the verifier discovers such a sequence, it will print a
+   message like 
+
+          unreachable in fooBar(): 3417+4, 7732+2
+
+   Where the +X means how many bytes onward in the byte sequence to
+   find the unreachable code.
+
+
+   
