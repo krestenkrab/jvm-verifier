@@ -565,10 +565,11 @@ public class BytecodeVerifier
 		  int index = n2h.get1u (code, pc++);
 		  Type t = getConstantType (index);
 
-		  if (t != ctx.FLOAT && t != ctx.INT && t != ctx.STRING)
+		  if (   t != ctx.FLOAT  && t != ctx.INT 
+		      && t != ctx.STRING && t != ctx.CLASS)
 		    {
 		      throw new verify.type.IncompatibleTypesException
-			("erroneous operand, "+t+", for ldc2_w instrunction");
+			("erroneous operand, "+t+", for ldc instrunction");
 		    }
 
 		  state.push (t);
@@ -2013,10 +2014,10 @@ public class BytecodeVerifier
 	      static final Class XCLASS = FOOBAR.class;
 
 	   but it does not, so this is also not allowed as a constant value.
-
-	   // case CONSTANT_Class:
-	   //   return ctx.CLASS;
 	*/
+
+	case CONSTANT_Class:
+	    return ctx.CLASS;
 
       default:
 	throw new verify.VerificationException
